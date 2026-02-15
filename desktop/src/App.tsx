@@ -1,17 +1,31 @@
-import { useState } from 'react'
+import { useEffect } from 'react'
 import Navbar from './components/Navbar'
+import TabBar from './components/TabBar'
 import AIPanel from './components/AIPanel'
+import { useBrowserStore } from './stores/useBrowserStore'
+import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 function App() {
-  const [currentUrl, setCurrentUrl] = useState('https://www.google.com')
-  const [isAIPanelOpen, setIsAIPanelOpen] = useState(true)
+  useKeyboardShortcuts()
+  const { tabs, activeTabId, updateTab, isAIPanelOpen, toggleAIPanel } = useBrowserStore()
+  const activeTab = tabs.find(tab => tab.id === activeTabId)
 
   const handleNavigate = async (url: string) => {
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
-      url = 'https://' + url
+      // Check if it's a search query or URL
+      if (url.includes(' ') || !url.includes('.')) {
+        // Search query
+        url = `https://www.google.com/search?q=${encodeURIComponent(url)}`
+      } else {
+        // Assume it's a URL without protocol
+        url = 'https://' + url
+      }
     }
-    setCurrentUrl(url)
-    await window.electronAPI?.navigate(url)
+
+    if (activeTabId) {
+      updateTab(activeTabId, { url, isLoading: true })
+      await window.electronAPI?.navigate(url)
+    }
   }
 
   const handleBack = async () => {
@@ -23,18 +37,47 @@ function App() {
   }
 
   const handleReload = async () => {
+    if (activeTabId) {
+      updateTab(activeTabId, { isLoading: true })
+    }
     await window.electronAPI?.reload()
   }
 
+  // Listen for page load events
+  useEffect(() => {
+    const updatePageInfo = async () => {
+      if (!activeTabId) return
+      
+      const url = await window.electronAPI?.getUrl()
+      const title = await window.electronAPI?.getTitle()
+      
+      if (url || title) {
+        updateTab(activeTabId, {
+          url: url || activeTab?.url || '',
+          title: title || 'Untitled',
+          isLoading: false
+        })
+      }
+    }
+
+    // Poll for updates (better would be to listen to events from main process)
+    const interval = setInterval(updatePageInfo, 1000)
+    return () => clearInterval(interval)
+  }, [activeTabId])
+
   return (
     <div className="flex flex-col h-screen bg-background">
+      {/* Tab Bar */}
+      <TabBar />
+      
+      {/* Navigation Bar */}
       <Navbar
-        currentUrl={currentUrl}
+        currentUrl={activeTab?.url || ''}
         onNavigate={handleNavigate}
         onBack={handleBack}
         onForward={handleForward}
         onReload={handleReload}
-        onToggleAI={() => setIsAIPanelOpen(!isAIPanelOpen)}
+        onToggleAI={toggleAIPanel}
       />
       
       <div className="flex flex-1 overflow-hidden">
@@ -43,7 +86,7 @@ function App() {
         
         {/* AI Assistant Panel */}
         {isAIPanelOpen && (
-          <AIPanel onClose={() => setIsAIPanelOpen(false)} />
+          <AIPanel onClose={() => toggleAIPanel()} />
         )}
       </div>
     </div>
