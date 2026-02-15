@@ -1,60 +1,50 @@
-import { useState } from 'react'
-import { X, Send } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { X, Send, Loader2, WifiOff } from 'lucide-react'
+import { useAIStore } from '../stores/useAIStore'
 
 interface AIPanelProps {
   onClose: () => void
 }
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: Date
-}
-
 export default function AIPanel({ onClose }: AIPanelProps) {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      role: 'assistant',
-      content: 'Hi! I\'m your AI assistant. I can help you navigate, summarize pages, fill forms, and more. What would you like to do?',
-      timestamp: new Date()
-    }
-  ])
+  const { messages, isConnected, isLoading, error, connect, sendMessage } = useAIStore()
   const [inputValue, setInputValue] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    // Connect to Clawdbot on mount
+    connect()
+  }, [])
+
+  useEffect(() => {
+    // Auto-scroll to bottom when new messages arrive
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!inputValue.trim()) return
+    if (!inputValue.trim() || isLoading) return
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: inputValue,
-      timestamp: new Date()
-    }
-
-    setMessages([...messages, userMessage])
+    await sendMessage(inputValue)
     setInputValue('')
+  }
 
-    // TODO: Send to Clawdbot Gateway via WebSocket
-    // For now, just echo back
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: `You said: "${inputValue}". AI integration coming soon!`,
-        timestamp: new Date()
-      }
-      setMessages(prev => [...prev, aiMessage])
-    }, 500)
+  const handleQuickAction = (action: string) => {
+    sendMessage(action)
   }
 
   return (
     <div className="w-96 border-l border-border bg-secondary flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h2 className="text-sm font-semibold">AI Assistant</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">AI Assistant</h2>
+          {isConnected ? (
+            <div className="w-2 h-2 rounded-full bg-green-500" title="Connected" />
+          ) : (
+            <WifiOff className="w-3 h-3 text-muted-foreground" title="Disconnected" />
+          )}
+        </div>
         <button
           onClick={onClose}
           className="p-1 rounded hover:bg-accent transition-colors"
@@ -63,6 +53,13 @@ export default function AIPanel({ onClose }: AIPanelProps) {
           <X className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="px-4 py-2 bg-red-500/10 border-b border-red-500/20 text-red-500 text-xs">
+          {error}
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -84,19 +81,42 @@ export default function AIPanel({ onClose }: AIPanelProps) {
             </div>
           </div>
         ))}
+        
+        {/* Loading indicator */}
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="bg-accent px-4 py-2 rounded-lg">
+              <Loader2 className="w-4 h-4 animate-spin" />
+            </div>
+          </div>
+        )}
+        
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Quick Actions */}
       <div className="px-4 py-2 border-t border-border">
         <div className="text-xs text-muted-foreground mb-2">Quick Actions:</div>
         <div className="flex flex-wrap gap-2">
-          <button className="px-3 py-1 text-xs bg-accent rounded-full hover:bg-accent/80 transition-colors">
+          <button
+            onClick={() => handleQuickAction('Summarize this page')}
+            disabled={!isConnected || isLoading}
+            className="px-3 py-1 text-xs bg-accent rounded-full hover:bg-accent/80 transition-colors disabled:opacity-50"
+          >
             Summarize page
           </button>
-          <button className="px-3 py-1 text-xs bg-accent rounded-full hover:bg-accent/80 transition-colors">
+          <button
+            onClick={() => handleQuickAction('Extract key data from this page')}
+            disabled={!isConnected || isLoading}
+            className="px-3 py-1 text-xs bg-accent rounded-full hover:bg-accent/80 transition-colors disabled:opacity-50"
+          >
             Extract data
           </button>
-          <button className="px-3 py-1 text-xs bg-accent rounded-full hover:bg-accent/80 transition-colors">
+          <button
+            onClick={() => handleQuickAction('Translate this page to English')}
+            disabled={!isConnected || isLoading}
+            className="px-3 py-1 text-xs bg-accent rounded-full hover:bg-accent/80 transition-colors disabled:opacity-50"
+          >
             Translate
           </button>
         </div>
@@ -109,15 +129,20 @@ export default function AIPanel({ onClose }: AIPanelProps) {
             type="text"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Type a message..."
-            className="flex-1 bg-transparent outline-none text-sm"
+            placeholder={isConnected ? "Type a message..." : "Connecting..."}
+            disabled={!isConnected || isLoading}
+            className="flex-1 bg-transparent outline-none text-sm disabled:opacity-50"
           />
           <button
             type="submit"
-            disabled={!inputValue.trim()}
+            disabled={!inputValue.trim() || !isConnected || isLoading}
             className="p-1 rounded hover:bg-accent transition-colors disabled:opacity-50"
           >
-            <Send className="w-4 h-4" />
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
           </button>
         </div>
       </form>

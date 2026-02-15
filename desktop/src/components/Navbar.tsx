@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { ArrowLeft, ArrowRight, RotateCw, Lock, Search, Sparkles } from 'lucide-react'
+import { ArrowLeft, ArrowRight, RotateCw, Lock, Search, Sparkles, Star, Clock, Settings as SettingsIcon } from 'lucide-react'
 
 interface NavbarProps {
   currentUrl: string
@@ -8,6 +8,9 @@ interface NavbarProps {
   onForward: () => void
   onReload: () => void
   onToggleAI: () => void
+  onOpenSettings: () => void
+  onOpenBookmarks: () => void
+  onOpenHistory: () => void
 }
 
 export default function Navbar({
@@ -16,7 +19,10 @@ export default function Navbar({
   onBack,
   onForward,
   onReload,
-  onToggleAI
+  onToggleAI,
+  onOpenSettings,
+  onOpenBookmarks,
+  onOpenHistory
 }: NavbarProps) {
   const [inputValue, setInputValue] = useState(currentUrl)
   const [isFocused, setIsFocused] = useState(false)
@@ -96,14 +102,37 @@ export default function Navbar({
         </div>
       </form>
 
-      {/* AI Toggle Button */}
-      <button
-        onClick={onToggleAI}
-        className="p-2 rounded-lg hover:bg-accent transition-colors"
-        title="Toggle AI Assistant"
-      >
-        <Sparkles className="w-5 h-5 text-primary" />
-      </button>
+      {/* Action Buttons */}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onOpenBookmarks}
+          className="p-2 rounded-lg hover:bg-accent transition-colors"
+          title="Bookmarks (Cmd+D)"
+        >
+          <Star className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onOpenHistory}
+          className="p-2 rounded-lg hover:bg-accent transition-colors"
+          title="History (Cmd+Y)"
+        >
+          <Clock className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onOpenSettings}
+          className="p-2 rounded-lg hover:bg-accent transition-colors"
+          title="Settings"
+        >
+          <SettingsIcon className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onToggleAI}
+          className="p-2 rounded-lg hover:bg-accent transition-colors"
+          title="Toggle AI Assistant (Cmd+K)"
+        >
+          <Sparkles className="w-5 h-5 text-primary" />
+        </button>
+      </div>
     </nav>
   )
 }

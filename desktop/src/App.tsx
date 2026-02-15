@@ -1,13 +1,19 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import Navbar from './components/Navbar'
 import TabBar from './components/TabBar'
 import AIPanel from './components/AIPanel'
+import Settings from './components/Settings'
+import Bookmarks from './components/Bookmarks'
+import History from './components/History'
 import { useBrowserStore } from './stores/useBrowserStore'
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts'
 
 function App() {
   useKeyboardShortcuts()
   const { tabs, activeTabId, updateTab, isAIPanelOpen, toggleAIPanel } = useBrowserStore()
+  const [showSettings, setShowSettings] = useState(false)
+  const [showBookmarks, setShowBookmarks] = useState(false)
+  const [showHistory, setShowHistory] = useState(false)
   const activeTab = tabs.find(tab => tab.id === activeTabId)
 
   const handleNavigate = async (url: string) => {
@@ -78,6 +84,9 @@ function App() {
         onForward={handleForward}
         onReload={handleReload}
         onToggleAI={toggleAIPanel}
+        onOpenSettings={() => setShowSettings(true)}
+        onOpenBookmarks={() => setShowBookmarks(true)}
+        onOpenHistory={() => setShowHistory(true)}
       />
       
       <div className="flex flex-1 overflow-hidden">
@@ -89,6 +98,21 @@ function App() {
           <AIPanel onClose={() => toggleAIPanel()} />
         )}
       </div>
+
+      {/* Modals */}
+      {showSettings && <Settings onClose={() => setShowSettings(false)} />}
+      {showBookmarks && (
+        <Bookmarks
+          onClose={() => setShowBookmarks(false)}
+          onNavigate={handleNavigate}
+        />
+      )}
+      {showHistory && (
+        <History
+          onClose={() => setShowHistory(false)}
+          onNavigate={handleNavigate}
+        />
+      )}
     </div>
   )
 }
